@@ -1,6 +1,7 @@
 import { createServer } from 'node:http'
 import { randomUUID, timingSafeEqual } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
+import { createOperations } from './operations.js'
 
 const services = [
   { id: 'facial', name: '基础面部护理', duration: 60, price: 168 },
@@ -43,7 +44,8 @@ function isStaff(header, token) {
   return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
-export function createSalonServer({ staffToken, now = () => new Date() } = {}) {
+export function createSalonServer({ staffToken, adminToken, demoFile, now = () => new Date() } = {}) {
+  const operate = demoFile && createOperations({ file: demoFile, services, now, staffToken, adminToken, isStaff })
   const bookings = new Map()
   const occupied = new Set()
 
@@ -63,6 +65,14 @@ export function createSalonServer({ staffToken, now = () => new Date() } = {}) {
     const method = request.method
 
     try {
+      if (path.startsWith('/api/operations/')) {
+        if (!operate) return fail(503, '四角色联调未启用，请联系门店')
+        const result = operate({
+          method, path: path.slice('/api/operations'.length), header: request.headers.authorization,
+          input: method === 'POST' ? await readJson(request) : null
+        })
+        return send(result.status, result.data)
+      }
       if (method === 'GET' && path === '/api/services') return send(200, services)
       if (method === 'GET' && path === '/api/slots') {
         return send(200, slotsFor(now()).filter(slot => !occupied.has(slot.id)))
@@ -116,6 +126,10 @@ export function createSalonServer({ staffToken, now = () => new Date() } = {}) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.PORT ?? 3000)
-  createSalonServer({ staffToken: process.env.SALON_STAFF_TOKEN })
+  createSalonServer({
+    staffToken: process.env.SALON_STAFF_TOKEN,
+    adminToken: process.env.SALON_ADMIN_TOKEN,
+    demoFile: process.env.SALON_DEMO_FILE
+  })
     .listen(port, '127.0.0.1', () => console.log('Salon API: http://127.0.0.1:' + port))
 }

@@ -53,3 +53,19 @@ location ^~ /salon/api/ {
 ```
 
 部署后请求 `https://joytest.site/salon/api/services` 和 `https://joytest.site/salon/api/slots`，两者应返回 JSON 数组。小程序使用此地址。维护流程为云工作区开发和验证 → 推送 GitHub → Windows 和服务器从同一分支更新。
+
+## 四角色联调
+
+以下配置启用模拟购买。请使用不同的管理员和店员随机令牌，只测试演示业务。访客和顾客通过设备保存的联调会话区分，尚未接入微信登录。模拟支付不收款。
+
+```bash
+cd /root/salon-api
+read -rsp '管理员令牌: ' SALON_ADMIN_TOKEN
+echo
+read -rsp '店员令牌: ' SALON_STAFF_TOKEN
+echo
+export SALON_ADMIN_TOKEN SALON_STAFF_TOKEN
+SALON_DEMO_FILE=/root/salon-api/.salon-demo.json PORT=3100 npm start
+```
+
+保持既有 Nginx 路由。联调数据文件由单进程写入，重启后保留。管理员通过小程序添加可接待时段，门店当前按单服务容量排班。顾客预约后，在管理员后台及店员工作台刷新任务。店员接单并在预约时间到达后标记服务完成，再由顾客确认并扣次。联调店员共用任务队列，站外通知、个人排班、真实支付及真实身份认证有待接入。
