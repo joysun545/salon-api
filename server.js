@@ -48,7 +48,10 @@ export function createSalonServer({ staffToken, now = () => new Date() } = {}) {
   const occupied = new Set()
 
   return createServer(async (request, response) => {
-    const path = (request.url || '').split('?')[0]
+    const requestPath = (request.url || '').split('?')[0]
+    const path = requestPath.startsWith('/salon/api/')
+      ? requestPath.slice('/salon'.length)
+      : requestPath
     const send = (status, data) => {
       response.writeHead(status, {
         'content-type': 'application/json; charset=utf-8',
